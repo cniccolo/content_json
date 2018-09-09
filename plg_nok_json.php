@@ -141,7 +141,7 @@ class plgContentplg_nok_json extends JPlugin {
 		}
 		switch ($this->hashget($params,'view')) {
 			case "table":
-				$html .= $this->json_createHtmlServerTable($elementId, $labels, $fields, $records);
+				$html .= $this->json_createHtmlServerTable($elementId, $labels, $fields, $records,$params);
 				break;
 			case "records":
 				$html .= $this->json_createHtmlServerRecords($elementId, $labels, $fields, $records);
@@ -157,7 +157,7 @@ class plgContentplg_nok_json extends JPlugin {
 		return $html;
 	}
 
-	protected function json_createHtmlServerTable($elementId, $labels, $fields, $records) {
+	protected function json_createHtmlServerTable($elementId, $labels, $fields, $records,$params) {
 		$html = '<table id="'.$elementId.'" class="table json">'."\n";
 		if(count($labels) > 0) {
 			$html .= '<tr><th>'.implode('</th><th>',$labels).'</th></tr>';
@@ -165,7 +165,7 @@ class plgContentplg_nok_json extends JPlugin {
 		foreach($records as $record) {
 			$html .= '<tr>';
 			foreach($fields as $field) {
-				$html .= '<td>'.(isset($record[$field]) ? $record[$field] : '').'</td>';
+				$html .= '<td>'.(isset($record[$field]) ? $this->json_formatFieldValueServer($field,$record[$field],$params) : '').'</td>';
 			}
 			$html .= '</tr>';
 		}
@@ -186,6 +186,37 @@ class plgContentplg_nok_json extends JPlugin {
 		$html .= '</table>'."\n";
 		return $html;
 	}
+
+	private $settingsCache;
+
+    protected function json_formatFieldValueServer($field, $value,$params)
+    {
+        if($this->settingsCache==null)
+        {
+            $this->settingsCache = Array();
+            $settings = $this->hashget($params,'formatFields');
+            if ($settings != '')
+            {
+                $entries = explode(',',$settings);
+                foreach ($entries as $v) {
+                    $entry = explode('=',$v);
+                    $this->settingsCache[$entry[0]] = $entry[1];
+                }
+			}
+        }
+
+        if (isset($this->settingsCache[$field]))
+        {
+            if($this->settingsCache[$field]=='dateTime')
+            {
+                $mdate = date_create_from_format('Y-m-d\TH:i:s', $value);
+                return date_format($mdate, 'd.m.Y H:i');
+            }
+        }
+
+        return $value;
+    }
+
 
 	protected function json_createFieldHtml($id, $params) {
 		if ($this->fieldExecute == 'client') {
@@ -237,12 +268,28 @@ class plgContentplg_nok_json extends JPlugin {
 			$cache->setLifeTime($cachingTime);
 			$cached_data = $cache->get($url);
 			if (empty($cached_data)) {
-				$cached_data = file_get_contents($url);
+			    if ($this->doAuthBasic($hashmap))
+                {
+                    $context = stream_context_create(['http' => ['header' => $this->getAuthBasicHash($hashmap)]]);
+                    unset($hashmap['username']);
+                    unset($hashmap['password']);
+                    $cached_data = file_get_contents($url,false,$context);
+                }else{
+                    $cached_data = file_get_contents($url);
+                }
 				$cache->store($cached_data, $url);
 			}
 			return $cached_data;
 		}
-		return file_get_contents($url);
+        if ($this->doAuthBasic($hashmap))
+        {
+            $context = stream_context_create(['http' => ['header' => $this->getAuthBasicHash($hashmap)]]);
+            unset($hashmap['username']);
+            unset($hashmap['password']);
+            return file_get_contents($url,false,$context);
+        }else{
+            return file_get_contents($url);
+        }
 	}
 
 	protected function hashget($hashmap, $key) {
@@ -251,6 +298,17 @@ class plgContentplg_nok_json extends JPlugin {
 		}
 		return "";
 	}
+
+	protected function getAuthBasicHash($params)
+    {
+        return 'Authorization: Basic '. base64_encode("{$params['username']}:{$params['password']}");
+    }
+
+	protected function doAuthBasic($params)
+    {
+        if (isset($params['username']) && isset($params['password']) ) { return true; }
+        return false;
+    }
 
 	protected function executeOnClient($params) {
 		if (!isset($params['execute']) || ($params['execute'] != 'server')) { return true; }

@@ -5,3 +5,6 @@ view=table,records
 url=URL
 sortField=
 sortDirection=[asc,desc]
+username=[username for auth type basic]
+password=[password for auth type basic]
+formatFields=[fieldName=dateTime,fieldName2=format2] only dateTime is supported right now
