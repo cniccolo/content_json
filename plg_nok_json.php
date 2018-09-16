@@ -158,11 +158,19 @@ class plgContentplg_nok_json extends JPlugin {
 	}
 
 	protected function json_createHtmlServerTable($elementId, $labels, $fields, $records,$params) {
+	
 		$html = '<table id="'.$elementId.'" class="table json">'."\n";
 		if(count($labels) > 0) {
-			$html .= '<tr><th>'.implode('</th><th>',$labels).'</th></tr>';
+			$html .= '<tr class="tableheader"><th><div><span>'.implode('</span></div></th><th><div><span>',$labels).'</span></div></th></tr>';
 		}
+		
+		if (isset($params['subKey']))
+		{
+			$records = $records[$params['subKey']];	
+		}
+		
 		foreach($records as $record) {
+
 			$html .= '<tr>';
 			foreach($fields as $field) {
 				$html .= '<td>'.(isset($record[$field]) ? $this->json_formatFieldValueServer($field,$record[$field],$params) : '').'</td>';
@@ -179,6 +187,7 @@ class plgContentplg_nok_json extends JPlugin {
 			$html .= '<tr>';
 			$html .= '<th>'.(isset($labels[$key]) ? $labels[$key] : '').'</th>';
 			foreach($records as $record) {
+				
 				$html .= '<td>'.(isset($record[$field]) ? $record[$field] : '').'</td>';
 			}
 			$html .= '</tr>';
@@ -191,6 +200,7 @@ class plgContentplg_nok_json extends JPlugin {
 
     protected function json_formatFieldValueServer($field, $value,$params)
     {
+    
         if($this->settingsCache==null)
         {
             $this->settingsCache = Array();
